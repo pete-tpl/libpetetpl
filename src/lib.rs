@@ -1,7 +1,7 @@
 mod render_result;
 
 use std::sync::{Arc, Mutex};
-use std::ffi::{ CStr, CString};
+use std::ffi::CStr;
 
 use libc;
 
@@ -25,15 +25,14 @@ pub unsafe extern "C" fn create_new() -> libc::c_int {
     };
     let mut engines = engines_arc.lock().unwrap();
     engines.push(Engine::new());
-    return engines.len() as i32
+    return engines.len() as i32 - 1
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn render(handle: libc::c_uint, template: *const libc::c_char) -> *const RenderResult {
-    let mut result = RenderResult::new();
     let engines_arc = match &ENGINES {
         Some(e) => e,
-        None => { return std::ptr::null(); },
+        None => { return Box::into_raw(Box::new(RenderResult::new("PETE is not initialized.", -100))); },
     };
     let engines = engines_arc.lock().unwrap();
     let engine = &engines[handle as usize];
@@ -45,16 +44,9 @@ pub unsafe extern "C" fn render(handle: libc::c_uint, template: *const libc::c_c
     };
     
     match engine.render(tpl.clone(), ParameterStore::new()) {
-        Ok(s) => {
-            let c_template = CString::from_vec_unchecked(Vec::from(s.as_bytes()));
-            result.parsed_template = c_template.into_raw();
-            result.response_code = 2;
-            result.parsed_template_len = 222;
-        },
-        Err(e) => panic!(e),
-    };
-
-    Box::into_raw(Box::new(result))
+        Ok(rendered_template) => Box::into_raw(Box::new(RenderResult::new(rendered_template.as_str(), 0))),
+        Err(error) => Box::into_raw(Box::new(RenderResult::new(error.message.as_str(), -1))),
+    }
 }
 
 
