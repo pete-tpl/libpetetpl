@@ -20,9 +20,9 @@ pub struct Param {
 }
 
 impl Param {
-    pub unsafe fn fetch(paramsc: *const libc::c_uint, paramsv: *const Param) -> Result<ParameterStore, String> {
+    pub fn fetch(paramsc: *const libc::c_uint, paramsv: *const Param) -> Result<ParameterStore, String> {
         let mut result = ParameterStore::new();
-        let params: &[Param] = slice::from_raw_parts(paramsv, paramsc as usize);
+        let params: &[Param] = unsafe { slice::from_raw_parts(paramsv, paramsc as usize) };
         
         for param in params {
             let name = match ffi::ccharptr_to_string(param.name) {

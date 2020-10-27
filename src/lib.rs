@@ -31,18 +31,11 @@ pub unsafe extern "C" fn petetpl_create_new() -> libc::c_int {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn petetpl_render(handle: libc::c_uint,
+pub extern "C" fn petetpl_render(handle: libc::c_uint,
                                 template: *const libc::c_char,
                                 paramsc: *const libc::c_uint,
                                 paramsv: *const Param) -> *const RenderResult {
-    let engines_arc = match &ENGINES {
-        Some(e) => e,
-        None => { return Box::into_raw(Box::new(RenderResult::new("PETE is not initialized.", -100))); },
-    };
-    let engines = engines_arc.lock().unwrap();
-    let engine = &engines[handle as usize];
-
-    let tpl = CStr::from_ptr(template);
+    let tpl = unsafe { CStr::from_ptr(template) };
     let tpl = match tpl.to_str() {
         Ok(s) => String::from(s),
         Err(e) => panic!(e),
@@ -53,10 +46,25 @@ pub unsafe extern "C" fn petetpl_render(handle: libc::c_uint,
         Err(_) => { return Box::into_raw(Box::new(RenderResult::new("Failed to fetch parameters", -101))); },
     };
 
-    match engine.render(tpl.clone(), params) {
-        Ok(rendered_template) => Box::into_raw(Box::new(RenderResult::new(rendered_template.as_str(), 0))),
-        Err(error) => Box::into_raw(Box::new(RenderResult::new(error.message.as_str(), -1))),
+    unsafe {
+        let engines_arc = match &ENGINES {
+            Some(e) => e,
+            None => { return Box::into_raw(Box::new(RenderResult::new("PETE is not initialized.", -100))); },
+        };
+        let engines = engines_arc.lock().unwrap();
+        let engine = &engines[handle as usize];
+        match engine.render(tpl.clone(), params) {
+            Ok(rendered_template) => Box::into_raw(Box::new(RenderResult::new(rendered_template.as_str(), 0))),
+            Err(error) => Box::into_raw(Box::new(RenderResult::new(error.message.as_str(), -1))),
+        }
     }
 }
 
-
+#[no_mangle]
+pub extern "C" fn petetpl_free_render_result(result: *mut RenderResult) -> libc::c_int {
+    if result.is_null() {
+        return 1;
+    }
+    let _ = unsafe { Box::from_raw(result) };
+    return 1;
+}

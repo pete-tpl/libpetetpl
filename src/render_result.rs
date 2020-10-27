@@ -7,8 +7,8 @@ pub struct RenderResult {
 }
 
 impl RenderResult {
-    pub unsafe fn new(output: &str, error_code: i16) -> RenderResult {
-        let c_string = CString::from_vec_unchecked(Vec::from(output.as_bytes()));
+    pub fn new(output: &str, error_code: i16) -> RenderResult {
+        let c_string = unsafe { CString::from_vec_unchecked(Vec::from(output.as_bytes())) };
         RenderResult {
             output: c_string.into_raw(),
             error_code: error_code as libc::c_int,
